@@ -24,6 +24,7 @@ target_link_libraries(robomagellan_firmware
   hardware_dma
   ETHERNET_FILES
   IOLIBRARY_FILES
+  TIMER_FILES
 )
 
 pico_enable_stdio_usb(robomagellan_firmware 1)
