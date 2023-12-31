@@ -59,9 +59,11 @@
 #define REG_MOTOR_PERIOD    29  // 8-bit motor cycle period (1-100mS, 0 deactives driver)
 #define REG_MOTOR_MAX_STEP  30  // Max amount of change in PID setpoint per motor period
 
-#define REG_MOTOR1_VEL      32  // 16-bit motor velocity (ticks/cycle, read-write)
+// Setting drive motor as M2, so that we can write a single
+// packet to command M2 velocity + M1 position
+#define REG_MOTOR1_VEL      32  // 16-bit motor velocity (UNUSED FOR SERVO)
 #define REG_MOTOR2_VEL      34  // 16-bit motor velocity (ticks/cycle, read-write)
-#define REG_MOTOR1_POS      36  // 32-bit signed position (ticks, read-only)
+#define REG_MOTOR1_POS      36  // 32-bit signed position (microsecond pulse for servo, read-write)
 #define REG_MOTOR2_POS      40  // 32-bit signed position (ticks, read-only)
 #define REG_MOTOR1_CURRENT  44  // 16-bit unsigned (raw 12-bit value from ADC)
 #define REG_MOTOR2_CURRENT  46  // 16-bit unsigned (raw 12-bit value from ADC)

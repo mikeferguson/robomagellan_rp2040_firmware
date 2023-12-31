@@ -30,6 +30,7 @@
 
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
+#include "hardware/pwm.h"
 #include "etherbotix.hpp"
 #include "socket.h"
 #include "wizchip_conf.h"
@@ -47,8 +48,26 @@ static wiz_NetInfo g_net_info =
   .dhcp = NETINFO_STATIC                       // DHCP enable/disable
 };
 
+void servo_init()
+{
+  // 125mhz clock / 131 / 20000 = 50hz
+  // 20mS per cycle, so resolution is 1uS
+  pwm_config cfg = pwm_get_default_config();
+  pwm_config_set_clkdiv_int(&cfg, 131);
+  pwm_config_set_wrap(&cfg, 20000);
+  pwm_init(0, &cfg, false /* do not start */);
+}
+
+// Sets the servo pulse/angle (in microseconds)
+void servo_set_angle(int pulse)
+{
+  // Output is 1-2ms pulse
+  pwm_set_chan_level(0 /* slice */, 0 /* channel */, pulse);
+  pwm_set_enabled(0 /* slice */, true);
+}
+
 registers_t registers;  // Register data
-uint32_t last_packet;
+uint32_t last_packet, last_motor_cmd;
 
 void udp_callback(uint8_t * buffer, uint16_t len, uint8_t * addr, uint16_t port)
 {
@@ -153,6 +172,30 @@ void udp_callback(uint8_t * buffer, uint16_t len, uint8_t * addr, uint16_t port)
               else
                 gpio_put(ACT_LED, 0);
             }
+            else if (write_addr + j == REG_MOTOR2_VEL)
+            {
+              // Set drive motor velocity
+              int16_t v = data[i + 6 + j] + (data[i + 7 + j] << 8);
+              // TODO - apply v
+              last_motor_cmd = registers.system_time;
+              ++j;  // uses 2 bytes
+            }
+            else if (write_addr + j == REG_MOTOR1_POS)
+            {
+              // Set servo position
+              int32_t p = data[i + 6 + j] +
+                          (data[i + 7 + j] << 8) +
+                          (data[i + 8 + j] << 16) +
+                          (data[i + 9 + j] << 24);
+              printf("Got servo command: %i", p);
+              if (p >= 1000 && p <= 2000)
+              {
+                servo_set_angle(p);
+                registers.motor1_pos = p;
+                last_motor_cmd = registers.system_time;
+              }
+              j += 3;  // uses 4 bytes
+            }
             else
             {
               // INSTRUCTION ERROR on invalid write?
@@ -201,8 +244,11 @@ int main()
 {
   stdio_init_all();
   adc_init();
-  adc_gpio_init(26);
-  adc_gpio_init(27);
+  gpio_set_function(0, GPIO_FUNC_PWM);  // Servo
+  servo_init();
+  servo_set_angle(1500);  // Center the servo at 1.5 mS
+  adc_gpio_init(26);  // Battery voltage
+  adc_gpio_init(27);  // Battery current
 
   registers.model_number = 302;  // Arbotix was 300
   registers.version = 7;
@@ -210,7 +256,7 @@ int main()
   registers.baud_rate = 1;  // 1mbps
   registers.digital_dir = 0;  // all in
   registers.digital_out = 0;
-  registers.system_time = last_packet = 0;
+  registers.system_time = last_packet = last_motor_cmd = 0;
   registers.motor_period = 10;  // 10mS period = 100hz
   registers.motor_max_step = 10;
   registers.motor1_kp = registers.motor2_kp = 1.0;
