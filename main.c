@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Michael Ferguson
+ * Copyright (c) 2012-2023 Michael Ferguson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,12 +29,14 @@
 #include <stdio.h>
 
 #include "pico/stdlib.h"
+#include "hardware/adc.h"
 #include "etherbotix.hpp"
 #include "socket.h"
 #include "wizchip_conf.h"
+#include "timer/timer.h"
 #include "w5x00_spi.h"
 
-const uint LED_PIN = PICO_DEFAULT_LED_PIN;
+const uint ACT_LED = PICO_DEFAULT_LED_PIN;
 static wiz_NetInfo g_net_info =
 {
   .mac = {0x00, 0x00, 0x42, 0x00, 0x00, 0x42}, // MAC address
@@ -46,6 +48,7 @@ static wiz_NetInfo g_net_info =
 };
 
 registers_t registers;  // Register data
+uint32_t last_packet;
 
 void udp_callback(uint8_t * buffer, uint16_t len, uint8_t * addr, uint16_t port)
 {
@@ -60,9 +63,7 @@ void udp_callback(uint8_t * buffer, uint16_t len, uint8_t * addr, uint16_t port)
   }
 
   // Update return data
-  //last_packet = registers.system_time;
-  //return_ipaddr = *addr;
-  //return_port = port;
+  last_packet = registers.system_time;
 
   // For each packet
   size_t i = 4;
@@ -148,9 +149,9 @@ void udp_callback(uint8_t * buffer, uint16_t len, uint8_t * addr, uint16_t port)
             {
               registers.led = data[i + 6 + j];
               if (data[i + 6 + j] > 0)
-                gpio_put(LED_PIN, 1);
+                gpio_put(ACT_LED, 1);
               else
-                gpio_put(LED_PIN, 0);
+                gpio_put(ACT_LED, 0);
             }
             else
             {
@@ -194,22 +195,22 @@ void udp_interface_init()
 void SysTick_Handler(void)
 {
   ++registers.system_time;
-
-  // TODO: system voltage
-  // TODO: system current
 }
 
 int main()
 {
   stdio_init_all();
+  adc_init();
+  adc_gpio_init(26);
+  adc_gpio_init(27);
 
-  registers.model_number = 301;  // Arbotix was 300
+  registers.model_number = 302;  // Arbotix was 300
   registers.version = 7;
   registers.id = ETHERBOTIX_ID;
   registers.baud_rate = 1;  // 1mbps
   registers.digital_dir = 0;  // all in
   registers.digital_out = 0;
-  registers.system_time = 0;
+  registers.system_time = last_packet = 0;
   registers.motor_period = 10;  // 10mS period = 100hz
   registers.motor_max_step = 10;
   registers.motor1_kp = registers.motor2_kp = 1.0;
@@ -223,8 +224,8 @@ int main()
   udp_interface_init();
   wizchip_1ms_timer_initialize(SysTick_Handler);
 
-  gpio_init(LED_PIN);
-  gpio_set_dir(LED_PIN, GPIO_OUT);
+  gpio_init(ACT_LED);
+  gpio_set_dir(ACT_LED, GPIO_OUT);
   while (true)
   {
     uint16_t size;
@@ -243,6 +244,29 @@ int main()
         printf("Failed to get packet\n");
       }
     }
-    sleep_ms(1);
+
+    // Get system voltage in 0.1v increment
+    //   adc is 12 bit (4096 count) spread over 3.3v
+    //   voltage divider is 15k/1k
+    adc_select_input(0);
+    registers.system_voltage = (adc_read()/4096.0f) * 3.3f * 16 * 10;
+
+    // Get current in mA:
+    //   ACS711: vcc/2 = 0A, 55mV/A
+    adc_select_input(1);
+    registers.servo_current = ((adc_read() - 2048.0f) / 4096.0f) * 3.3f / 0.055f * 1000;
+
+    // Toggle LED
+    if (registers.system_time - last_packet < 500)
+    {
+      if (registers.system_time % 200 == 0)
+        gpio_put(ACT_LED, 1);
+      else if (registers.system_time % 100 == 0)
+        gpio_put(ACT_LED, 0);
+    }
+    else
+    {
+      gpio_put(ACT_LED, 1);
+    }
   }
 }

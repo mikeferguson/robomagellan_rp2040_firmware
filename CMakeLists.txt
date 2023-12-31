@@ -20,6 +20,7 @@ add_executable(robomagellan_firmware
 )
 target_link_libraries(robomagellan_firmware
   pico_stdlib
+  hardware_adc
   hardware_spi
   hardware_dma
   ETHERNET_FILES
