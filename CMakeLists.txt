@@ -17,6 +17,7 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/libraries/port)
 
 add_executable(robomagellan_firmware
   main.c
+  vesc.c
 )
 target_link_libraries(robomagellan_firmware
   pico_stdlib
@@ -25,6 +26,7 @@ target_link_libraries(robomagellan_firmware
   hardware_dma
   hardware_pwm
   hardware_spi
+  hardware_uart
   ETHERNET_FILES
   IOLIBRARY_FILES
   TIMER_FILES

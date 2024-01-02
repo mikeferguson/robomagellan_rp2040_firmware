@@ -36,6 +36,7 @@
 #include "wizchip_conf.h"
 #include "timer/timer.h"
 #include "w5x00_spi.h"
+#include "vesc.h"
 
 const uint ACT_LED = PICO_DEFAULT_LED_PIN;
 static wiz_NetInfo g_net_info =
@@ -176,7 +177,7 @@ void udp_callback(uint8_t * buffer, uint16_t len, uint8_t * addr, uint16_t port)
             {
               // Set drive motor velocity
               int16_t v = data[i + 6 + j] + (data[i + 7 + j] << 8);
-              // TODO - apply v
+              vesc_set_rpm(v);
               last_motor_cmd = registers.system_time;
               ++j;  // uses 2 bytes
             }
@@ -187,7 +188,6 @@ void udp_callback(uint8_t * buffer, uint16_t len, uint8_t * addr, uint16_t port)
                           (data[i + 7 + j] << 8) +
                           (data[i + 8 + j] << 16) +
                           (data[i + 9 + j] << 24);
-              printf("Got servo command: %i", p);
               if (p >= 1000 && p <= 2000)
               {
                 servo_set_angle(p);
@@ -249,6 +249,7 @@ int main()
   servo_set_angle(1500);  // Center the servo at 1.5 mS
   adc_gpio_init(26);  // Battery voltage
   adc_gpio_init(27);  // Battery current
+  vesc_init();
 
   registers.model_number = 302;  // Arbotix was 300
   registers.version = 7;
@@ -289,6 +290,20 @@ int main()
       {
         printf("Failed to get packet\n");
       }
+    }
+
+    // Apply motor timeout
+    if (registers.system_time - last_motor_cmd > 500)
+    {
+      vesc_set_rpm(0);
+    }
+
+    // Process VESC updates
+    if (vesc_update(registers.system_time) > 0)
+    {
+      // Copy over values
+      registers.motor2_vel = vesc_get_rpm();
+      registers.motor2_pos = vesc_get_dist();
     }
 
     // Get system voltage in 0.1v increment
