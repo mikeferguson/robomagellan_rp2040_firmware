@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, Michael E. Ferguson
+ * Copyright (c) 2023-2024, Michael E. Ferguson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,15 +32,14 @@
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
 
-#define VESC_GET_FW_VER                   0
-#define VESC_GET_STATUS                   4
-#define VESC_SET_DUTY                     5
-#define VESC_SET_CURRENT                  6
-#define VESC_SET_RPM                      8
-#define VESC_SET_CONF                     13
-#define VESC_GET_CONF                     14
-#define VESC_GET_STATUS_SELECTIVE         50
-#define VESC_GET_STATUS_SETUP_SELECTIVE   51
+#define VESC_GET_FW_VER             0
+#define VESC_GET_STATUS             4
+#define VESC_SET_DUTY               5
+#define VESC_SET_CURRENT            6
+#define VESC_SET_RPM                8
+#define VESC_SET_CONF               13
+#define VESC_GET_CONF               14
+#define VESC_GET_STATUS_SELECTIVE   50
 
 const uint16_t crc_table[] =
 { 
@@ -115,9 +114,15 @@ int32_t vesc_rpm_command;
 // System time when last command was sent
 uint32_t vesc_last_sent;
 // State variables
+int32_t vesc_current_100;
 int32_t vesc_rpm_100;
 int16_t vesc_voltage_10;
-int32_t vesc_dist_1000;
+int32_t vesc_dist;
+
+int32_t vesc_get_current_mA()
+{
+  return vesc_current_100 / 10;
+}
 
 int32_t vesc_get_rpm()
 {
@@ -126,7 +131,7 @@ int32_t vesc_get_rpm()
 
 int32_t vesc_get_dist()
 {
-  return vesc_dist_1000;
+  return vesc_dist;
 }
 
 void uart_handler_rx()
@@ -206,8 +211,6 @@ int vesc_decode(uint8_t c)
       }
       else if (c == 3)
       {
-        //printf("\n");
-
         // Check CRC
         uint16_t crc = crc16(packet.payload, packet.length);
         if (crc != packet.crc)
@@ -217,15 +220,17 @@ int vesc_decode(uint8_t c)
         }
         
         // Packet is good
-        if (packet.payload[0] == VESC_GET_STATUS_SETUP_SELECTIVE)
+        if (packet.payload[0] == VESC_GET_STATUS_SELECTIVE)
         {
           // First 4 bytes are the mask
-          // Next 4 are the RPM * 100
-          vesc_rpm_100 = ((packet.payload[5] << 24) + (packet.payload[6] << 16) + (packet.payload[7] << 8) + packet.payload[8]);
+          // Next 4 bytes are the input current * 100
+          vesc_current_100 = ((packet.payload[5] << 24) + (packet.payload[6] << 16) + (packet.payload[7] << 8) + packet.payload[8]);
+          // Next 4 bytes are the RPM * 100
+          vesc_rpm_100 = ((packet.payload[9] << 24) + (packet.payload[10] << 16) + (packet.payload[11] << 8) + packet.payload[12]);
           // Next 2 bytes are Voltage * 10
-          vesc_voltage_10 = ((packet.payload[9] << 8) + packet.payload[10]);
-          // Next 4 bytes are distance traveled * 1000
-          vesc_dist_1000 = (packet.payload[11] << 24) + (packet.payload[12] << 16) + (packet.payload[13] << 8) + packet.payload[14];
+          vesc_voltage_10 = ((packet.payload[13] << 8) + packet.payload[14]);
+          // Next 4 bytes is distance travled in (3 * poles) electrical rotations
+          vesc_dist = (packet.payload[15] << 24) + (packet.payload[16] << 16) + (packet.payload[17] << 8) + packet.payload[18];
         }
 
         // Reset for next packet
@@ -286,17 +291,18 @@ int vesc_update(uint32_t system_time)
     packet_idx = 0;
 
     /*
-     * bit 5 = return RPM multiplied by 100
-     * bit 7 = Voltage multiplied by 10
-     * bit 13 = distance traveled since boot, multiplied by 1000
+     * bit 3 = return avg input current multiplied by 100
+     * bit 7 = return RPM multiplied by 100
+     * bit 8 = return Voltage multiplied by 10
+     * bit 13 = return electrical distance traveled
      */
-    uint32_t selective_mask = (1 << 5) + (1 << 7) + (1 << 13);
+    uint32_t selective_mask = (1 << 3) + (1 << 7) + (1 << 8) + (1 << 13);
 
     // Read back select state
     uint8_t buffer[10];
     buffer[0] = 2;  // Short packet start byte
     buffer[1] = 5;  // Payload length
-    buffer[2] = VESC_GET_STATUS_SETUP_SELECTIVE;
+    buffer[2] = VESC_GET_STATUS_SELECTIVE;
     buffer[3] = (selective_mask >> 16) & 0xff;
     buffer[4] = (selective_mask >> 16) & 0xff;
     buffer[5] = (selective_mask >> 8) & 0xff;
