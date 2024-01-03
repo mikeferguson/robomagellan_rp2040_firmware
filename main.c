@@ -265,7 +265,9 @@ int main()
   registers.digital_dir = 0;  // all in
   registers.digital_out = 0;
   registers.system_time = last_packet = last_motor_cmd = 0;
-  registers.motor_period = 10;  // 10mS period = 100hz
+  // motor_period doesn't actually correspond to anything real with this firmware
+  // maximizing the available resolution by setting to a large value
+  registers.motor_period = 250;
   registers.motor_max_step = 10;
   registers.motor1_kp = registers.motor2_kp = 1.0;
   registers.motor1_kd = registers.motor2_kd = 0;
@@ -309,7 +311,7 @@ int main()
     if (vesc_update(registers.system_time) > 0)
     {
       // Copy over values
-      registers.motor2_vel = vesc_get_rpm();
+      registers.motor2_vel = vesc_get_ticks_per_motor_period(registers.motor_period);
       registers.motor2_pos = vesc_get_dist();
       registers.motor2_current = vesc_get_current_mA();
     }

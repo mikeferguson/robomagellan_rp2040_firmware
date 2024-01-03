@@ -42,6 +42,9 @@ int32_t vesc_get_current_mA();
 // Get the present electrical RPM
 int32_t vesc_get_rpm();
 
+// Get the motor ticks per period
+int32_t vesc_get_ticks_per_motor_period(uint32_t motor_period);
+
 // Get the distance traveled
 // Multiply this by pi/3 to get electrical distance
 int32_t vesc_get_dist();

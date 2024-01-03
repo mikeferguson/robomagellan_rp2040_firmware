@@ -115,7 +115,7 @@ int32_t vesc_rpm_command;
 uint32_t vesc_last_sent;
 // State variables
 int32_t vesc_current_100;
-int32_t vesc_rpm_100;
+int32_t vesc_rpm;
 int16_t vesc_voltage_10;
 int32_t vesc_dist;
 
@@ -126,7 +126,16 @@ int32_t vesc_get_current_mA()
 
 int32_t vesc_get_rpm()
 {
-  return vesc_rpm_100;
+  return vesc_rpm;
+}
+
+int32_t vesc_get_ticks_per_motor_period(uint32_t motor_period)
+{
+  // VESC returns RPM
+  // Each revolution is 3 * poles (2) = 6 ticks
+  int32_t ticks_per_minute = vesc_rpm * 6;
+  // Compute ticks per motor period
+  return (motor_period * ticks_per_minute / 60 / 1000);
 }
 
 int32_t vesc_get_dist()
@@ -225,8 +234,8 @@ int vesc_decode(uint8_t c)
           // First 4 bytes are the mask
           // Next 4 bytes are the input current * 100
           vesc_current_100 = ((packet.payload[5] << 24) + (packet.payload[6] << 16) + (packet.payload[7] << 8) + packet.payload[8]);
-          // Next 4 bytes are the RPM * 100
-          vesc_rpm_100 = ((packet.payload[9] << 24) + (packet.payload[10] << 16) + (packet.payload[11] << 8) + packet.payload[12]);
+          // Next 4 bytes are the RPM
+          vesc_rpm = ((packet.payload[9] << 24) + (packet.payload[10] << 16) + (packet.payload[11] << 8) + packet.payload[12]);
           // Next 2 bytes are Voltage * 10
           vesc_voltage_10 = ((packet.payload[13] << 8) + packet.payload[14]);
           // Next 4 bytes is distance travled in (3 * poles) electrical rotations
