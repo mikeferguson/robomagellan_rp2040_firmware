@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2023 Michael Ferguson
+ * Copyright (c) 2012-2024 Michael Ferguson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -311,6 +311,7 @@ int main()
       // Copy over values
       registers.motor2_vel = vesc_get_rpm();
       registers.motor2_pos = vesc_get_dist();
+      registers.motor2_current = vesc_get_current_mA();
     }
 
     // Get system voltage in 0.1v increment

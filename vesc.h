@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, Michael E. Ferguson
+ * Copyright (c) 2023-2024, Michael E. Ferguson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,13 +33,17 @@
 // Initialize the VESC driver
 void vesc_init();
 
-// Set the command RPM
+// Set the command electrical RPM
 void vesc_set_rpm(int rpm);
 
-// Get the current RPM
+// Get the input/bus current, in milliamps
+int32_t vesc_get_current_mA();
+
+// Get the present electrical RPM
 int32_t vesc_get_rpm();
 
 // Get the distance traveled
+// Multiply this by pi/3 to get electrical distance
 int32_t vesc_get_dist();
 
 // Periodic update - handles actual serial comms
