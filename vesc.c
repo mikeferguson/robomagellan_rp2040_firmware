@@ -172,6 +172,13 @@ void vesc_set_rpm(int rpm)
   vesc_rpm_command = rpm;
 }
 
+void vesc_set_ticks_per_motor_period(int ticks, uint32_t motor_period)
+{
+  int32_t ticks_per_second = 1000 * ticks / motor_period;
+  // Each revolution is 3 * poles (2) = 6 ticks
+  vesc_rpm_command = 60 * ticks_per_second / 6;
+}
+
 /*
  * Incrementally decode a VESC packet.
  *

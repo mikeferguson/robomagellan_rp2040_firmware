@@ -177,7 +177,7 @@ void udp_callback(uint8_t * buffer, uint16_t len, uint8_t * addr, uint16_t port)
             {
               // Set drive motor velocity
               int16_t v = data[i + 6 + j] + (data[i + 7 + j] << 8);
-              vesc_set_rpm(v);
+              vesc_set_ticks_per_motor_period(v, registers.motor_period);
               last_motor_cmd = registers.system_time;
               ++j;  // uses 2 bytes
             }

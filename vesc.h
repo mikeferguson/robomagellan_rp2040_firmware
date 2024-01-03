@@ -36,6 +36,9 @@ void vesc_init();
 // Set the command electrical RPM
 void vesc_set_rpm(int rpm);
 
+// Set the command using ticks per motor period
+void vesc_set_ticks_per_motor_period(int ticks, uint32_t motor_period);
+
 // Get the input/bus current, in milliamps
 int32_t vesc_get_current_mA();
 
