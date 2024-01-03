@@ -196,6 +196,13 @@ void udp_callback(uint8_t * buffer, uint16_t len, uint8_t * addr, uint16_t port)
               }
               j += 3;  // uses 4 bytes
             }
+            else if (write_addr + j >= REG_MOTOR1_KP &&
+                     write_addr + j < REG_ACC_X)
+            {
+              // Save gains, even though we don't use them, so that drivers don't spam
+              uint8_t * reg_data = (uint8_t *) &registers;
+              reg_data[write_addr + j] = data[i + 6 + j];
+            }
             else
             {
               // INSTRUCTION ERROR on invalid write?
