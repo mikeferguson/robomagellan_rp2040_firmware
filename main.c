@@ -38,7 +38,10 @@
 #include "w5x00_spi.h"
 #include "vesc.h"
 
-const uint ACT_LED = PICO_DEFAULT_LED_PIN;
+// Pin Usage
+const uint ACT_LED = 2;
+const uint ERR_LED = 3;
+
 static wiz_NetInfo g_net_info =
 {
   .mac = {0x00, 0x00, 0x42, 0x00, 0x00, 0x42}, // MAC address
@@ -236,6 +239,7 @@ void udp_interface_init()
   {
     while (true)
     {
+      gpio_put(ERR_LED, 0);  // LED on
       printf("Failed to open socket\n");
       sleep_ms(250);
     }
@@ -277,11 +281,15 @@ int main()
   registers.usart3_char = 255;  // No terminating character
   registers.packets_recv = registers.packets_bad = 0;
 
+  gpio_init(ACT_LED);
+  gpio_set_dir(ACT_LED, GPIO_OUT);
+  gpio_init(ERR_LED);
+  gpio_put(ERR_LED, 1);  // LED off
+  gpio_set_dir(ERR_LED, GPIO_OUT);
+
   udp_interface_init();
   wizchip_1ms_timer_initialize(SysTick_Handler);
 
-  gpio_init(ACT_LED);
-  gpio_set_dir(ACT_LED, GPIO_OUT);
   while (true)
   {
     uint16_t size;
@@ -330,14 +338,16 @@ int main()
     // Toggle LED
     if (registers.system_time - last_packet < 500)
     {
+      // Comms is good = LED always on
+      gpio_put(ACT_LED, 0);
+    }
+    else
+    {
+      // No comms - flash LED
       if (registers.system_time % 200 == 0)
         gpio_put(ACT_LED, 1);
       else if (registers.system_time % 100 == 0)
         gpio_put(ACT_LED, 0);
-    }
-    else
-    {
-      gpio_put(ACT_LED, 1);
     }
   }
 }
