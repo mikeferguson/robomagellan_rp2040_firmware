@@ -24,3 +24,7 @@ cd build
 cmake ..
 make
 ```
+
+# Known Issues
+
+ * Deadman radio is not implemented
